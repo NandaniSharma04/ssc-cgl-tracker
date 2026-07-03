@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SSC CGL — 30 Day Tracker</title>
+<style>
+  :root{
+    --bg:#1c1b1f;
+    --panel:#242329;
+    --paper:#edeae3;
+    --ink:#2a2822;
+    --amber:#f2a93b;
+    --teal:#3e8b8b;
+    --coral:#e1654f;
+    --muted:#8b8894;
+    --line:#38363e;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--paper);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    padding:20px 14px 60px;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--amber);font-weight:700;margin-bottom:6px;
+  }
+  h1{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size:28px;margin:0 0 4px;letter-spacing:.01em;
+  }
+  .sub{color:var(--muted);font-size:13px;}
+
+  .progress-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 18px;
+    margin:18px 0 24px;
+  }
+  .progress-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .progress-num{font-family:Georgia,serif;font-size:22px;color:var(--amber);}
+  .progress-label{font-size:12px;color:var(--muted);}
+  .bar-track{height:8px;background:#3a3843;border-radius:5px;overflow:hidden;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--amber));border-radius:5px;transition:width .4s ease;}
+
+  .section-title{
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:26px 0 10px;font-weight:700;
+  }
+
+  .day-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:12px;
+  }
+  .day-card.today{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset;}
+  .day-head{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;
+  }
+  .day-date{font-family:Georgia,serif;font-size:15px;color:var(--paper);}
+  .day-date .dow{color:var(--muted);font-weight:400;font-size:12px;margin-left:6px;}
+  .badge-today{
+    font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    background:var(--amber);color:#1c1b1f;padding:3px 8px;border-radius:20px;font-weight:700;
+  }
+
+  .task{
+    display:flex;align-items:flex-start;gap:10px;
+    padding:8px 6px;border-radius:6px;cursor:pointer;
+    transition:background .15s;
+  }
+  .task:hover{background:#2c2b32;}
+  .task input{
+    appearance:none;-webkit-appearance:none;
+    width:18px;height:18px;min-width:18px;
+    border:2px solid var(--muted);border-radius:5px;
+    margin-top:2px;cursor:pointer;position:relative;
+  }
+  .task input:checked{background:var(--teal);border-color:var(--teal);}
+  .task input:checked::after{
+    content:"✓";position:absolute;top:-3px;left:2px;color:#fff;font-size:13px;font-weight:700;
+  }
+  .task-body{flex:1;}
+  .task-tag{
+    display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:20px;font-weight:700;margin-bottom:3px;
+  }
+  .tag-reasoning{background:rgba(62,139,139,.25);color:#7fc9c9;}
+  .tag-english{background:rgba(225,101,79,.25);color:#f0958a;}
+  .tag-mock{background:rgba(242,169,59,.25);color:var(--amber);}
+  .task-text{font-size:14px;color:var(--paper);}
+  .task-text.done{color:var(--muted);text-decoration:line-through;}
+  .carried{font-size:10px;color:var(--amber);margin-top:2px;}
+
+  .future{opacity:.55;}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 0;}
+  .reset-btn{
+    display:block;margin:30px auto 0;background:none;border:1px solid var(--line);
+    color:var(--muted);font-size:12px;padding:8px 16px;border-radius:20px;cursor:pointer;
+  }
+  .reset-btn:hover{border-color:var(--coral);color:var(--coral);}
+  .loading{text-align:center;color:var(--muted);padding:40px 0;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">SSC CGL · Tier 1 Warm-up</div>
+    <h1>30 Day Reasoning + English Tracker</h1>
+    <div class="sub">3 July – 31 July · Tick it or it rolls to today</div>
+  </header>
+
+  <div class="progress-card">
+    <div class="progress-top">
+      <span class="progress-num" id="progressNum">0%</span>
+      <span class="progress-label" id="progressLabel">0 of 0 topics done</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+  </div>
+
+  <div id="app"><div class="loading">Loading your plan…</div></div>
+
+  <button class="reset-btn" id="resetBtn">Reset all progress</button>
+</div>
+
+<script>
+const STORAGE_KEY = 'ssc_cgl_tasks_v1';
+
+// Browser-based storage wrapper (works when hosted on GitHub Pages / any static host)
+window.storage = {
+  async get(key){
+    const v = localStorage.getItem(key);
+    return v === null ? null : {key, value: v};
+  },
+  async set(key, value){
+    localStorage.setItem(key, value);
+    return {key, value};
+  }
+};
+
+// ---- Build the 29-day plan (topics based on the roadmap you were given) ----
+function buildPlan(){
+  const startDate = new Date('2026-07-03T00:00:00');
+  const plan = [
+    ['Analogy','Parts of Speech — Noun'],
+    ['Classification','Parts of Speech — Pronoun'],
+    null, // Sunday — revision/mock
+    ['Coding-Decoding','Parts of Speech — Verb'],
+    ['Alphabet Series','Tense — Present'],
+    ['Number Series','Tense — Past'],
+    ['Week 1 Mixed Practice','Tense — Future + Revision'],
+    ['Blood Relation','Articles (a/an/the)'],
+    ['Direction Sense','Preposition'],
+    null,
+    ['Ranking / Order','Subject-Verb Agreement'],
+    ['Sitting Arrangement — Linear','Voice (Active/Passive)'],
+    ['Sitting Arrangement — Circular','Narration (Direct/Indirect)'],
+    ['Week 2 Mixed Practice','Week 2 Revision'],
+    ['Puzzle — Basic','Cloze Test'],
+    ['Statement–Conclusion','Reading Comprehension'],
+    null,
+    ['Syllogism','Error Spotting — Part 1'],
+    ['Puzzle — Advanced','Error Spotting — Part 2'],
+    ['Statement–Assumption','Error Spotting PYQs'],
+    ['Week 3 Mixed Practice','Week 3 Revision'],
+    ['Full PYQ Set 1','Full PYQ Set 1'],
+    ['Full PYQ Set 2','Full PYQ Set 2'],
+    null,
+    ['Weak Topic Revision','Weak Topic Revision'],
+    ['Speed Practice — Round 1','Synonyms / Antonyms'],
+    ['Speed Practice — Round 2','One Word Substitution'],
+    ['Full-Length Practice Set','Full-Length Practice Set'],
+    ['FULL MOCK TEST','Month Review — what improved, what didn\'t'],
+  ];
+
+  const days = [];
+  for(let i=0;i<plan.length;i++){
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate()+i);
+    const iso = d.toISOString().slice(0,10);
+    const entry = plan[i];
+    const tasks = [];
+    if(entry === null){
+      tasks.push({id: iso+'-mock', subject:'mock', text:'Weekly revision + solve one full Tier 1 mock (analyze every mistake)'});
+    } else {
+      tasks.push({id: iso+'-r', subject:'reasoning', text: entry[0]});
+      tasks.push({id: iso+'-e', subject:'english', text: entry[1]});
+    }
+    days.push({date: iso, tasks});
+  }
+  return days;
+}
+
+function todayISO(){
+  // Using the plan's real-world reference date
+  return new Date().toISOString().slice(0,10);
+}
+
+function dowLabel(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('en-US',{weekday:'short'});
+}
+function dateLabel(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('en-US',{month:'short', day:'numeric'});
+}
+
+let planDays = buildPlan();
+let taskState = {}; // id -> {done:bool, date:iso, originalDate:iso}
+
+async function loadState(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY);
+    if(res && res.value) taskState = JSON.parse(res.value);
+  }catch(e){ taskState = {}; }
+
+  // initialize any missing tasks with their planned date
+  planDays.forEach(day=>{
+    day.tasks.forEach(t=>{
+      if(!taskState[t.id]){
+        taskState[t.id] = {done:false, date:day.date, originalDate:day.date};
+      }
+    });
+  });
+
+  // roll over unfinished past tasks to today
+  const today = todayISO();
+  let changed = false;
+  Object.keys(taskState).forEach(id=>{
+    const s = taskState[id];
+    if(!s.done && s.date < today){
+      s.date = today;
+      changed = true;
+    }
+  });
+  if(changed) await saveState();
+}
+
+async function saveState(){
+  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(taskState)); }
+  catch(e){ console.error('save failed', e); }
+}
+
+function tagLabel(subject){
+  if(subject==='reasoning') return {cls:'tag-reasoning', text:'Reasoning'};
+  if(subject==='english') return {cls:'tag-english', text:'English'};
+  return {cls:'tag-mock', text:'Weekly Review'};
+}
+
+function render(){
+  const today = todayISO();
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+
+  // flat list of all tasks w/ effective date
+  const all = [];
+  planDays.forEach(day=>{
+    day.tasks.forEach(t=>{
+      const s = taskState[t.id];
+      all.push({...t, effDate: s.date, originalDate: s.originalDate, done: s.done});
+    });
+  });
+
+  const doneCount = all.filter(t=>t.done).length;
+  document.getElementById('progressNum').textContent = Math.round(100*doneCount/all.length)+'%';
+  document.getElementById('progressLabel').textContent = `${doneCount} of ${all.length} topics done`;
+  document.getElementById('barFill').style.width = Math.round(100*doneCount/all.length)+'%';
+
+  // group by effective date
+  const byDate = {};
+  all.forEach(t=>{
+    (byDate[t.effDate] = byDate[t.effDate] || []).push(t);
+  });
+  const dates = Object.keys(byDate).sort();
+
+  const todayTasks = byDate[today] || [];
+  const futureDates = dates.filter(d => d > today);
+  const pastUndone = dates.filter(d => d < today); // shouldn't exist after rollover, safety net
+
+  const section = (title)=>{
+    const h = document.createElement('div');
+    h.className='section-title'; h.textContent=title;
+    app.appendChild(h);
+  };
+
+  section('Today · ' + dateLabel(today));
+  if(todayTasks.length===0){
+    const e = document.createElement('div'); e.className='empty'; e.textContent='Nothing scheduled today — you\'re ahead 🎉';
+    app.appendChild(e);
+  } else {
+    app.appendChild(renderDayCard(today, todayTasks, true));
+  }
+
+  const upcoming = futureDates.slice(0,10);
+  if(upcoming.length){
+    section('Coming Up');
+    upcoming.forEach(d=>{
+      const card = renderDayCard(d, byDate[d], false);
+      card.classList.add('future');
+      app.appendChild(card);
+    });
+  }
+}
+
+function renderDayCard(iso, tasks, isToday){
+  const card = document.createElement('div');
+  card.className = 'day-card' + (isToday? ' today':'');
+
+  const head = document.createElement('div');
+  head.className='day-head';
+  head.innerHTML = `<div class="day-date">${dateLabel(iso)} <span class="dow">${dowLabel(iso)}</span></div>` +
+    (isToday? '<span class="badge-today">Today</span>':'');
+  card.appendChild(head);
+
+  tasks.forEach(t=>{
+    const row = document.createElement('label');
+    row.className='task';
+    const tag = tagLabel(t.subject);
+    const carriedNote = (t.originalDate !== t.effDate) ? `<div class="carried">Carried over from ${dateLabel(t.originalDate)}</div>` : '';
+    row.innerHTML = `
+      <input type="checkbox" ${t.done?'checked':''} data-id="${t.id}">
+      <div class="task-body">
+        <span class="task-tag ${tag.cls}">${tag.text}</span>
+        <div class="task-text ${t.done?'done':''}">${t.text}</div>
+        ${carriedNote}
+      </div>
+    `;
+    card.appendChild(row);
+  });
+  return card;
+}
+
+document.addEventListener('change', async (e)=>{
+  if(e.target && e.target.matches('input[type=checkbox][data-id]')){
+    const id = e.target.getAttribute('data-id');
+    taskState[id].done = e.target.checked;
+    await saveState();
+    render();
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', async ()=>{
+  if(!confirm('Reset all progress? This clears every tick and carry-over.')) return;
+  taskState = {};
+  await saveState();
+  await loadState();
+  render();
+});
+
+(async function init(){
+  await loadState();
+  render();
+})();
+</script>
+</body>
+</html>
