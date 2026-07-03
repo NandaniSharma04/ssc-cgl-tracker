@@ -90,7 +90,39 @@
   }
   .personal-pick b{color:var(--amber);}
 
-  .day-card{
+  .stat-row{display:flex;gap:12px;margin:18px 0 24px;}
+  .stat-card{
+    flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 12px;text-align:center;
+  }
+  .stat-num{font-family:Georgia,serif;font-size:22px;color:var(--amber);}
+  .stat-num.streak{color:var(--coral);}
+  .stat-label{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+
+  .subject-bars{margin-bottom:8px;}
+  .subject-row{margin-bottom:10px;}
+  .subject-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+  .subject-head .name{color:var(--paper);font-weight:600;}
+  .subject-head .pct{color:var(--muted);}
+  .subject-track{height:6px;background:#3a3843;border-radius:4px;overflow:hidden;}
+  .subject-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+  .fill-reasoning{background:var(--teal);}
+  .fill-english{background:var(--coral);}
+
+  .month-grid{
+    display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;
+  }
+  .month-cell{
+    aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-size:11px;color:var(--muted);background:#2c2b32;border:1px solid var(--line);position:relative;
+  }
+  .month-cell.today{border-color:var(--amber);color:var(--amber);font-weight:700;}
+  .month-cell.done{background:rgba(62,139,139,.35);color:var(--paper);border-color:var(--teal);}
+  .month-cell.partial{background:rgba(242,169,59,.2);color:var(--paper);border-color:rgba(242,169,59,.4);}
+  .month-cell.blank{background:transparent;border:none;}
+  .month-legend{display:flex;gap:14px;justify-content:center;margin-top:10px;font-size:10px;color:var(--muted);}
+  .legend-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle;}
     background:var(--panel);
     border:1px solid var(--line);
     border-radius:10px;
@@ -165,6 +197,37 @@
   <div class="reminder-bar" id="reminderBar">
     <div class="reminder-text" id="reminderText">Loading today's status…</div>
     <button class="reminder-btn" id="reminderBtn">Turn on reminders</button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-num streak" id="streakNum">0</div>
+      <div class="stat-label">Day Streak</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="daysLeftNum">—</div>
+      <div class="stat-label">Days Left</div>
+    </div>
+  </div>
+
+  <div class="section-title">Subject Progress</div>
+  <div class="res-card subject-bars">
+    <div class="subject-row">
+      <div class="subject-head"><span class="name">Reasoning</span><span class="pct" id="reasoningPct">0%</span></div>
+      <div class="subject-track"><div class="subject-fill fill-reasoning" id="reasoningFill" style="width:0%"></div></div>
+    </div>
+    <div class="subject-row">
+      <div class="subject-head"><span class="name">English</span><span class="pct" id="englishPct">0%</span></div>
+      <div class="subject-track"><div class="subject-fill fill-english" id="englishFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="section-title">July at a Glance</div>
+  <div class="month-grid" id="monthGrid"></div>
+  <div class="month-legend">
+    <span><span class="legend-dot" style="background:rgba(62,139,139,.6)"></span>Fully done</span>
+    <span><span class="legend-dot" style="background:rgba(242,169,59,.5)"></span>Partly done</span>
+    <span><span class="legend-dot" style="background:#f2a93b"></span>Today</span>
   </div>
 
   <div id="app"><div class="loading">Loading your plan…</div></div>
@@ -417,6 +480,9 @@ document.addEventListener('change', async (e)=>{
     await saveState();
     render();
     updateReminderBar();
+    updateStreak();
+    updateSubjectBars();
+    updateMonthGrid();
   }
 });
 
@@ -427,6 +493,9 @@ document.getElementById('resetBtn').addEventListener('click', async ()=>{
   await loadState();
   render();
   updateReminderBar();
+  updateStreak();
+  updateSubjectBars();
+  updateMonthGrid();
 });
 
 function updateReminderBar(){
@@ -487,10 +556,97 @@ function fireReminderNow(){
   }
 }
 
+function updateStreak(){
+  // Streak = consecutive days (counting back from today) where every task
+  // *originally scheduled* for that day was completed on time (not carried over).
+  const today = todayISO();
+  const byOriginal = {};
+  Object.keys(taskState).forEach(id=>{
+    const s = taskState[id];
+    (byOriginal[s.originalDate] = byOriginal[s.originalDate] || []).push(s);
+  });
+
+  let streak = 0;
+  let cursor = new Date(today+'T00:00:00');
+  cursor.setDate(cursor.getDate()-1); // start checking from yesterday backwards
+  while(true){
+    const iso = cursor.toISOString().slice(0,10);
+    const tasks = byOriginal[iso];
+    if(!tasks || tasks.length===0) break; // before plan started
+    const allDone = tasks.every(t=>t.done);
+    if(!allDone) break;
+    streak++;
+    cursor.setDate(cursor.getDate()-1);
+  }
+  document.getElementById('streakNum').textContent = streak;
+
+  const endDate = new Date('2026-07-31T00:00:00');
+  const t = new Date(today+'T00:00:00');
+  const daysLeft = Math.max(0, Math.round((endDate - t)/(1000*60*60*24)));
+  document.getElementById('daysLeftNum').textContent = daysLeft;
+}
+
+function updateSubjectBars(){
+  const all = Object.keys(taskState).map(id=>({id, ...taskState[id]}));
+  planDays.forEach(day=>{
+    day.tasks.forEach(t=>{
+      const match = all.find(a=>a.id===t.id);
+      if(match) match.subject = t.subject;
+    });
+  });
+  const reasoning = all.filter(t=>t.subject==='reasoning');
+  const english = all.filter(t=>t.subject==='english');
+  const rPct = reasoning.length ? Math.round(100*reasoning.filter(t=>t.done).length/reasoning.length) : 0;
+  const ePct = english.length ? Math.round(100*english.filter(t=>t.done).length/english.length) : 0;
+  document.getElementById('reasoningPct').textContent = rPct+'%';
+  document.getElementById('englishPct').textContent = ePct+'%';
+  document.getElementById('reasoningFill').style.width = rPct+'%';
+  document.getElementById('englishFill').style.width = ePct+'%';
+}
+
+function updateMonthGrid(){
+  const grid = document.getElementById('monthGrid');
+  grid.innerHTML = '';
+  const today = todayISO();
+
+  const byOriginal = {};
+  Object.keys(taskState).forEach(id=>{
+    const s = taskState[id];
+    (byOriginal[s.originalDate] = byOriginal[s.originalDate] || []).push(s);
+  });
+
+  const first = new Date('2026-07-01T00:00:00');
+  const firstDow = first.getDay(); // 0=Sun
+  for(let i=0;i<firstDow;i++){
+    const blank = document.createElement('div');
+    blank.className='month-cell blank';
+    grid.appendChild(blank);
+  }
+
+  for(let day=1; day<=31; day++){
+    const iso = `2026-07-${String(day).padStart(2,'0')}`;
+    const cell = document.createElement('div');
+    let cls = 'month-cell';
+    if(iso === today) cls += ' today';
+    const tasks = byOriginal[iso];
+    if(tasks && tasks.length){
+      const doneCount = tasks.filter(t=>t.done).length;
+      if(doneCount === tasks.length) cls += ' done';
+      else if(doneCount > 0) cls += ' partial';
+    }
+    cell.className = cls;
+    cell.textContent = day;
+    grid.appendChild(cell);
+  }
+}
+
 (async function init(){
   await loadState();
   render();
   updateReminderBar();
+  updateStreak();
+  updateSubjectBars();
+  updateMonthGrid();
   setupReminderButton();
 })();
 </script>
