@@ -269,18 +269,6 @@
 <script>
 const STORAGE_KEY = 'ssc_cgl_tasks_v1';
 
-// Browser-based storage wrapper (works when hosted on GitHub Pages / any static host)
-window.storage = {
-  async get(key){
-    const v = localStorage.getItem(key);
-    return v === null ? null : {key, value: v};
-  },
-  async set(key, value){
-    localStorage.setItem(key, value);
-    return {key, value};
-  }
-};
-
 // ---- Build the 29-day plan (topics based on the roadmap you were given) ----
 function buildPlan(){
   const startDate = new Date('2026-07-03T00:00:00');
